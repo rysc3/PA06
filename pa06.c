@@ -10,6 +10,8 @@ int total_cars = 0;
 
 pthread_mutex_t lock;
 
+void* car(void* arg);
+void* simulation(void* arg);
 
 
 int main(int argc, char* argv[]){
@@ -34,5 +36,28 @@ int main(int argc, char* argv[]){
     printf("Give -M <int> -N <int>\n");
     return 1;
   }
+
+  // pthread init 
+  pthread_mutex_init(&lock, NULL);
+
+  // do thread things
+}
+
+
+/*
+  Function to track each car as their own threads, each carrying a number of people
+  
+  They need to start and leave at set intervals, and also track that they don't
+  take more than a certain number of people.
+*/
+void* car(void* arg){
+
+}
+
+/*
+  Function to run the entire simulation of shuffling people through cars until we reach 
+  the max amount of time. 
+*/
+void* simulation(void* arg){
 
 }
