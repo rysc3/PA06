@@ -28,6 +28,11 @@ int main(int argc, char* argv[]){
         return 1;
     }
   }
-
+  
+  // Check args are valid 
+  if(total_people < 0 || total_cars < 0){
+    printf("Give -M <int> -N <int>\n");
+    return 1;
+  }
 
 }
