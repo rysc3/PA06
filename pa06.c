@@ -7,11 +7,15 @@
 int waiting = 0;
 int total_people = 0;
 int total_cars = 0;
+int max_people = 0;  // track max waiting at any time
+
+#define SIM_DURATION 700  // 9 to 7pm in mins
 
 pthread_mutex_t lock;
 
 void* car(void* arg);
 void* simulation(void* arg);
+
 
 
 int main(int argc, char* argv[]){
@@ -52,6 +56,15 @@ int main(int argc, char* argv[]){
 */
 void* car(void* arg){
 
+  // We wait before loading since we can accept new passengers even if they show up during loading period
+  usleep(7000000);  // 7 seconds
+  
+  pthead_mutex_lock(&lock);
+  // TODO accept less than or equal to max passengers
+  pthead_mutex_lock(&lock);
+
+  // ride time
+  usleep(53000000);  // 53 seconds
 }
 
 /*
@@ -60,4 +73,21 @@ void* car(void* arg){
 */
 void* simulation(void* arg){
 
+  // int time = 0;
+  // while(time < SIM_DURATION){
+  //   pthread_mutex_lock(&lock);
+  //   pthread_mutex_lock(&lock);
+  // }
+
+  for(int i=0; i<SIM_DURATION; i++){
+    pthread_mutex_lock(&lock);
+
+    total_people += 1;
+
+    if(total_people > max_people){
+      max_people = total_people;
+    }
+
+    pthread_mutex_lock(&lock);
+  }
 }
