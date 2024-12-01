@@ -130,6 +130,14 @@ void *simulation(void *arg)
     /*
       End of safe section
     */
+    
+    /*
+      Create a global clock running in the simulation thread. We send a broadcast message to all threads 
+      on set intervals so they can syncronize their clocks against the global.
+    */
+    pthread_mutex_lock(&mutex_clock);
+    pthread_cond_broadcast(&sync);
+    pthread_mutex_unlock(&mutex_clock);
   }
 }
 
@@ -143,23 +151,34 @@ void *car(void *arg)
 {
   int riders = 0;
 
+  /*
+    Cars sync with the global clock 
+    each waits for a message from the mutex_clock to start. This is broadcast to every thread 
+    in simulation with the pthread_cond_broadcast.
+  */
+  pthread_mutex_lock(&mutex_clock);
+  pthread_cond_wait(&sync, &mutex_clock);
+  pthread_mutex_unlock(&mutex_clock);
+
   // We wait before loading since we can accept new passengers even if they show up during loading period
   usleep(7000000); // 7 seconds
 
   /*
     Inside of safe section here, we manage dealing with the shared number of people things.
   */
-  pthead_mutex_lock(&lock);
+  pthread_mutex_lock(&lock);
   if (waiting > 0)
   {
     riders = (waiting >= max_people) ? max_people : waiting;
     waiting -= riders;
     printf("  (car) Took %d riders", riders);
   }
-  pthead_mutex_unlock(&lock);
+  pthread_mutex_unlock(&lock);
 
   // ride time
   usleep(53000000); // 53 seconds
+
+  return NULL;
 }
 
 /*
