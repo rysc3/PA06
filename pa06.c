@@ -13,7 +13,8 @@ int total_rejected = 0;
 int max_people = 0; // track max waiting at any cur_time
 int max_waiting_time = 0;
 
-#define SIM_DURATION 700 // 9 to 7pm in mins
+// #define SIM_DURATION 700 // 9 to 7pm in mins
+#define SIM_DURATION 100
 #define MAXWAITPEOPLE 800
 
 void *car(void *arg);
@@ -55,6 +56,12 @@ int main(int argc, char *argv[])
       printf("Invalid option\n");
       return 1;
     }
+  }
+  // Make sure some params are passed
+  if (total_cars == 0 || max_people == 0)
+  {
+    printf("Both -N and -M must be given.\n");
+    return 1;
   }
 
   /*
@@ -108,7 +115,7 @@ int main(int argc, char *argv[])
   printf("Results:\n");
   printf("Total people arrived: %d\n", total_people);
   printf("Total people rejected: %d\n", total_rejected);
-  printf("Total people who rode: %d\n", total_people);
+  printf("Total people who rode: %d\n", total_rides_taken);
   printf("Total rides taken: %d\n", total_rides_taken);
   printf("Max queue size: %d was at %d mins.\n", max_people, max_waiting_time);
   printf("-----------------------------\n");
@@ -123,7 +130,8 @@ int main(int argc, char *argv[])
 */
 void *simulation(void *arg)
 {
-  for (int i = 0; i < SIM_DURATION; i++)
+  printf("Starting Simulation. \n");
+  for (int i = 0; i <= SIM_DURATION; i++)
   {
     int people = poissonRandom(mean_arrivals(i));
     int rejected = 0;
@@ -135,20 +143,20 @@ void *simulation(void *arg)
       Start by checking we haven't went over our defined MAX. If so, track how many we've rejected
       If not, track all the other things and send them on the rides.
     */
-    if (waiting + people > MAXWAITPEOPLE) // Case where we need to reject someone
+    total_people += people;
+    if (waiting + people > MAXWAITPEOPLE)
     {
-      // Track max waiting people
-      if (waiting > max_people)
-      {
-        max_people = waiting;
-        max_waiting_time = i;
-      }
-      rejected += (waiting + people) - MAXWAITPEOPLE;
-      printf("(sim) Step: %d, Rejected %d bums.\n", i, rejected);
+      int rejected = (waiting + people) - MAXWAITPEOPLE;
+      total_rejected += rejected;
     }
-    else // Case where we are below the MAX cap
+    else
     {
       waiting += people;
+    }
+    if (waiting > max_people)
+    {
+      max_people = waiting;
+      max_waiting_time = i;
     }
     pthread_mutex_unlock(&lock);
     /*
@@ -165,6 +173,8 @@ void *simulation(void *arg)
     cur_time = i;
     pthread_cond_broadcast(&sync_cond);
     pthread_mutex_unlock(&mutex_clock);
+    // usleep(60000000); // Make things feel like an actual simulation. This is 1 min.
+    usleep(60000);
   }
   return NULL;
 }
@@ -179,45 +189,33 @@ void *car(void *arg)
 {
   int riders = 0;
 
-  // Each thread loops until the sim ends
-  while (cur_time < SIM_DURATION)
+  while (1)
   {
-    /*
-      Cars sync_cond with the global clock
-      each waits for a message from the mutex_clock to start. This is broadcast to every thread
-      in simulation with the pthread_cond_broadcast.
-    */
     pthread_mutex_lock(&mutex_clock);
     pthread_cond_wait(&sync_cond, &mutex_clock);
+    if (cur_time >= SIM_DURATION)
+    {
+      pthread_mutex_unlock(&mutex_clock);
+      return NULL;
+    }
     pthread_mutex_unlock(&mutex_clock);
 
-    // We wait before loading since we can accept new passengers even if they show up during loading period
-    usleep(7000000); // 7 seconds
+    // usleep(7000000); // Load time
+    usleep(7000);
 
-    /*
-      Inside of safe section here, we manage dealing with the shared number of people things.
-    */
     pthread_mutex_lock(&lock);
     if (waiting > 0)
     {
       riders = (waiting >= max_people) ? max_people : waiting;
-
-      // Save total riders
-      total_people += riders;
-
       waiting -= riders;
-
-      // Track total rides taken
       total_rides_taken += riders;
-
-      printf("  (car) Took %d riders", riders);
+      printf("  (car %lu) Took %d riders\n", pthread_self(), riders);
     }
     pthread_mutex_unlock(&lock);
 
-    // ride time
-    usleep(53000000); // 53 seconds
+    // usleep(53000000); // Ride time
+    usleep(53000);
   }
-
   return NULL;
 }
 
