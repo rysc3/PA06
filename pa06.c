@@ -2,7 +2,6 @@
 #include <getopt.h>            // To parse command line arguments w/ `optarg` in main
 #include <bits/pthreadtypes.h> // for pthread_t
 #include "random437.h"
-#include <math.h>
 #include <pthread.h>
 #include <unistd.h>
 
@@ -11,7 +10,7 @@ int total_people = 0;
 int total_cars = 0;
 int total_rides_taken = 0;
 int total_rejected = 0;
-int max_people = 0; // track max waiting at any time
+int max_people = 0; // track max waiting at any cur_time
 int max_waiting_time = 0;
 
 #define SIM_DURATION 700 // 9 to 7pm in mins
@@ -19,12 +18,13 @@ int max_waiting_time = 0;
 
 void *car(void *arg);
 void *simulation(void *arg);
+int mean_arrivals(int time);
 
 pthread_mutex_t lock;
 // Global clock
 pthread_mutex_t mutex_clock;
-pthread_cond_t sync;
-int time = 0;
+pthread_cond_t sync_cond;
+int cur_time = 0;
 
 int main(int argc, char *argv[])
 {
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
   */
   pthread_mutex_init(&lock, NULL);
   pthread_mutex_init(&mutex_clock, NULL);
-  pthread_cond_init(&sync, NULL);
+  pthread_cond_init(&sync_cond, NULL);
 
   pthread_t cars[total_cars]; // track all of our cars
   pthread_t sim;
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
   // Donezo
   pthread_mutex_destroy(&lock);
   pthread_mutex_destroy(&mutex_clock);
-  pthread_cond_destroy(&sync);
+  pthread_cond_destroy(&sync_cond);
 
   // Print final stats
   printf("-----------------------------\n");
@@ -159,11 +159,11 @@ void *simulation(void *arg)
       Create a global clock running in the simulation thread. We send a broadcast message to all threads
       on set intervals so they can syncronize their clocks against the global.
 
-      Counting time to be the i value, so with a SIM_DURATION of 700 each i is a minute.
+      Counting cur_time to be the i value, so with a SIM_DURATION of 700 each i is a minute.
     */
     pthread_mutex_lock(&mutex_clock);
-    time = i;
-    pthread_cond_broadcast(&sync);
+    cur_time = i;
+    pthread_cond_broadcast(&sync_cond);
     pthread_mutex_unlock(&mutex_clock);
   }
   return NULL;
@@ -180,15 +180,15 @@ void *car(void *arg)
   int riders = 0;
 
   // Each thread loops until the sim ends
-  while (time < SIM_DURATION)
+  while (cur_time < SIM_DURATION)
   {
     /*
-      Cars sync with the global clock
+      Cars sync_cond with the global clock
       each waits for a message from the mutex_clock to start. This is broadcast to every thread
       in simulation with the pthread_cond_broadcast.
     */
     pthread_mutex_lock(&mutex_clock);
-    pthread_cond_wait(&sync, &mutex_clock);
+    pthread_cond_wait(&sync_cond, &mutex_clock);
     pthread_mutex_unlock(&mutex_clock);
 
     // We wait before loading since we can accept new passengers even if they show up during loading period
