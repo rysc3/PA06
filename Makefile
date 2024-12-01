@@ -1,12 +1,12 @@
-# Make file to make things
+# Makefile to build and clean
 
-# Flags 
 CC = gcc
 CFLAGS = -lpthread
 
 all:
-	cp pa06 pa06.back
-	$(CC) $(CFLAGS) -o pa06 pa06.c 
+	@if [ -f pa06 ]; then cp pa06 pa06.back; fi
+	$(CC) $(CFLAGS) -o pa06 pa06.c random437.h
 
-clean: 
-  rm -f pa06 pa06.c.back
+clean:
+	rm -f pa06
+	rm -f pa06.back

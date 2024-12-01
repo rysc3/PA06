@@ -2,6 +2,9 @@
 #include <getopt.h>            // To parse command line arguments w/ `optarg` in main
 #include <bits/pthreadtypes.h> // for pthread_t
 #include "random437.h"
+#include <math.h>
+#include <pthread.h>
+#include <unistd.h>
 
 int waiting = 0;
 int total_people = 0;
