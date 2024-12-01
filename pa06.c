@@ -6,7 +6,10 @@
 int waiting = 0;
 int total_people = 0;
 int total_cars = 0;
+int total_rides_taken = 0;
+int total_rejected = 0;
 int max_people = 0; // track max waiting at any time
+int max_waiting_time = 0;
 
 #define SIM_DURATION 700 // 9 to 7pm in mins
 #define MAXWAITPEOPLE 800
@@ -96,6 +99,18 @@ int main(int argc, char *argv[])
   pthread_mutex_destroy(&mutex_clock);
   pthread_cond_destroy(&sync);
 
+  // Print final stats
+  printf("-----------------------------\n");
+  printf("-----------------------------\n");
+  printf("Results:\n");
+  printf("Total people arrived: %d\n", total_people);
+  printf("Total people rejected: %d\n", total_rejected);
+  printf("Total people who rode: %d\n", total_people);
+  printf("Total rides taken: %d\n", total_rides_taken);
+  printf("Max queue size: %d was at %d mins.\n", max_people, max_waiting_time);
+  printf("-----------------------------\n");
+  printf("-----------------------------\n");
+
   return 0;
 }
 
@@ -119,6 +134,12 @@ void *simulation(void *arg)
     */
     if (waiting + people > MAXWAITPEOPLE) // Case where we need to reject someone
     {
+      // Track max waiting people
+      if (waiting > max_people)
+      {
+        max_people = waiting;
+        max_waiting_time = i;
+      }
       rejected += (waiting + people) - MAXWAITPEOPLE;
       printf("(sim) Step: %d, Rejected %d bums.\n", i, rejected);
     }
@@ -130,15 +151,19 @@ void *simulation(void *arg)
     /*
       End of safe section
     */
-    
+
     /*
-      Create a global clock running in the simulation thread. We send a broadcast message to all threads 
+      Create a global clock running in the simulation thread. We send a broadcast message to all threads
       on set intervals so they can syncronize their clocks against the global.
+
+      Counting time to be the i value, so with a SIM_DURATION of 700 each i is a minute.
     */
     pthread_mutex_lock(&mutex_clock);
+    time = i;
     pthread_cond_broadcast(&sync);
     pthread_mutex_unlock(&mutex_clock);
   }
+  return NULL;
 }
 
 /*
@@ -151,32 +176,44 @@ void *car(void *arg)
 {
   int riders = 0;
 
-  /*
-    Cars sync with the global clock 
-    each waits for a message from the mutex_clock to start. This is broadcast to every thread 
-    in simulation with the pthread_cond_broadcast.
-  */
-  pthread_mutex_lock(&mutex_clock);
-  pthread_cond_wait(&sync, &mutex_clock);
-  pthread_mutex_unlock(&mutex_clock);
-
-  // We wait before loading since we can accept new passengers even if they show up during loading period
-  usleep(7000000); // 7 seconds
-
-  /*
-    Inside of safe section here, we manage dealing with the shared number of people things.
-  */
-  pthread_mutex_lock(&lock);
-  if (waiting > 0)
+  // Each thread loops until the sim ends
+  while (time < SIM_DURATION)
   {
-    riders = (waiting >= max_people) ? max_people : waiting;
-    waiting -= riders;
-    printf("  (car) Took %d riders", riders);
-  }
-  pthread_mutex_unlock(&lock);
+    /*
+      Cars sync with the global clock
+      each waits for a message from the mutex_clock to start. This is broadcast to every thread
+      in simulation with the pthread_cond_broadcast.
+    */
+    pthread_mutex_lock(&mutex_clock);
+    pthread_cond_wait(&sync, &mutex_clock);
+    pthread_mutex_unlock(&mutex_clock);
 
-  // ride time
-  usleep(53000000); // 53 seconds
+    // We wait before loading since we can accept new passengers even if they show up during loading period
+    usleep(7000000); // 7 seconds
+
+    /*
+      Inside of safe section here, we manage dealing with the shared number of people things.
+    */
+    pthread_mutex_lock(&lock);
+    if (waiting > 0)
+    {
+      riders = (waiting >= max_people) ? max_people : waiting;
+
+      // Save total riders
+      total_people += riders;
+
+      waiting -= riders;
+
+      // Track total rides taken
+      total_rides_taken += riders;
+
+      printf("  (car) Took %d riders", riders);
+    }
+    pthread_mutex_unlock(&lock);
+
+    // ride time
+    usleep(53000000); // 53 seconds
+  }
 
   return NULL;
 }
