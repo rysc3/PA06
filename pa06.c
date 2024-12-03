@@ -16,7 +16,7 @@ int maxqueue = 0; // track max waiting at any cur_time
 int max_waiting_time = 0;
 
 // #define SIM_DURATION 700 // 9 to 7pm in mins
-#define SIM_DURATION 100
+#define SIM_DURATION 600
 #define MAXWAITPEOPLE 800
 
 void *car(void *arg);
@@ -91,7 +91,6 @@ int main(int argc, char *argv[])
   for (int i = 0; i < total_cars; i++)
   {
     pthread_create(&cars[i], NULL, car, NULL);
-    printf("%d",i);
   }
 
   /*
@@ -120,7 +119,7 @@ int main(int argc, char *argv[])
   printf("Total people rejected: %d\n", total_rejected);
   printf("Total people who rode: %d\n", total_riders);
   printf("Total rides taken: %d\n", total_rides_taken);
-  printf("Max queue size: %d was at %d mins.\n", maxqueue, max_waiting_time);
+  printf("Last max queue size: %d was at %d mins.\n", maxqueue, max_waiting_time);
   printf("-----------------------------\n");
   printf("-----------------------------\n");
 
@@ -157,7 +156,7 @@ void *simulation(void *arg)
     {
       waiting += people;
     }
-    if (waiting > maxqueue)
+    if (waiting >= maxqueue)
     {
       maxqueue = waiting;
       max_waiting_time = i;
@@ -179,7 +178,7 @@ void *simulation(void *arg)
     pthread_mutex_unlock(&mutex_clock);
     //pthread_cond_broadcast(&sync_cond);
     // usleep(60000000); // Make things feel like an actual simulation. This is 1 min.
-    usleep(60000);
+    usleep(61000);
   }
   return NULL;
 }
@@ -215,12 +214,16 @@ void *car(void *arg)
     {
       riders = (waiting >= max_people) ? max_people : waiting;
       waiting -= riders;
+      if(waiting < 0 )
+      {
+	waiting = 0;
+      }
       total_riders += riders;
       total_rides_taken += 1;
       printf("  (car %lu) Took %d riders\n", pthread_self(), riders);
     }
     pthread_mutex_unlock(&lock);
-    //pthread_mutex_unlock(&mutex_clock);
+    pthread_mutex_unlock(&mutex_clock);
 
 
     // usleep(53000000); // Ride time
@@ -238,10 +241,10 @@ int mean_arrivals(int time)
   if (time < 120)
     return 25;
   // 11:00 - 13:59
-  if (time < 240)
+  if (time < 300)
     return 45;
   // 14:00 - 15:59
-  if (time < 360)
+  if (time < 420)
     return 35;
   // 16:00 - 18:59
   return 25;
