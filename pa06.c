@@ -9,8 +9,10 @@ int waiting = 0;
 int total_people = 0;
 int total_cars = 0;
 int total_rides_taken = 0;
+int total_riders = 0;
 int total_rejected = 0;
-int max_people = 0; // track max waiting at any cur_time
+int max_people = 0;
+int maxqueue = 0; // track max waiting at any cur_time
 int max_waiting_time = 0;
 
 // #define SIM_DURATION 700 // 9 to 7pm in mins
@@ -89,6 +91,7 @@ int main(int argc, char *argv[])
   for (int i = 0; i < total_cars; i++)
   {
     pthread_create(&cars[i], NULL, car, NULL);
+    printf("%d",i);
   }
 
   /*
@@ -115,9 +118,9 @@ int main(int argc, char *argv[])
   printf("Results:\n");
   printf("Total people arrived: %d\n", total_people);
   printf("Total people rejected: %d\n", total_rejected);
-  printf("Total people who rode: %d\n", total_rides_taken);
+  printf("Total people who rode: %d\n", total_riders);
   printf("Total rides taken: %d\n", total_rides_taken);
-  printf("Max queue size: %d was at %d mins.\n", max_people, max_waiting_time);
+  printf("Max queue size: %d was at %d mins.\n", maxqueue, max_waiting_time);
   printf("-----------------------------\n");
   printf("-----------------------------\n");
 
@@ -148,14 +151,15 @@ void *simulation(void *arg)
     {
       int rejected = (waiting + people) - MAXWAITPEOPLE;
       total_rejected += rejected;
+      waiting += (people-rejected);
     }
     else
     {
       waiting += people;
     }
-    if (waiting > max_people)
+    if (waiting > maxqueue)
     {
-      max_people = waiting;
+      maxqueue = waiting;
       max_waiting_time = i;
     }
     pthread_mutex_unlock(&lock);
@@ -173,6 +177,7 @@ void *simulation(void *arg)
     cur_time = i;
     pthread_cond_broadcast(&sync_cond);
     pthread_mutex_unlock(&mutex_clock);
+    //pthread_cond_broadcast(&sync_cond);
     // usleep(60000000); // Make things feel like an actual simulation. This is 1 min.
     usleep(60000);
   }
@@ -191,13 +196,15 @@ void *car(void *arg)
 
   while (1)
   {
+    
     pthread_mutex_lock(&mutex_clock);
-    pthread_cond_wait(&sync_cond, &mutex_clock);
+    //pthread_cond_wait(&sync_cond, &mutex_clock);
     if (cur_time >= SIM_DURATION)
     {
       pthread_mutex_unlock(&mutex_clock);
       return NULL;
     }
+    pthread_cond_wait(&sync_cond, &mutex_clock);
     pthread_mutex_unlock(&mutex_clock);
 
     // usleep(7000000); // Load time
@@ -208,10 +215,13 @@ void *car(void *arg)
     {
       riders = (waiting >= max_people) ? max_people : waiting;
       waiting -= riders;
-      total_rides_taken += riders;
+      total_riders += riders;
+      total_rides_taken += 1;
       printf("  (car %lu) Took %d riders\n", pthread_self(), riders);
     }
     pthread_mutex_unlock(&lock);
+    //pthread_mutex_unlock(&mutex_clock);
+
 
     // usleep(53000000); // Ride time
     usleep(53000);
