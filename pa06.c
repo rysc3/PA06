@@ -14,9 +14,10 @@ int total_rejected = 0;
 int max_people = 0;
 int maxqueue = 0; // track max waiting at any cur_time
 int max_waiting_time = 0;
-
+int totalWait = 0;
+FILE* output = NULL;
 // #define SIM_DURATION 700 // 9 to 7pm in mins
-#define SIM_DURATION 600
+#define SIM_DURATION 599
 #define MAXWAITPEOPLE 800
 
 void *car(void *arg);
@@ -66,6 +67,8 @@ int main(int argc, char *argv[])
     return 1;
   }
 
+  output = fopen("output.txt", "w");
+
   /*
     Initialize all the thread variables.
 
@@ -110,7 +113,9 @@ int main(int argc, char *argv[])
   pthread_mutex_destroy(&lock);
   pthread_mutex_destroy(&mutex_clock);
   pthread_cond_destroy(&sync_cond);
+  int avg = totalWait/(total_people);
 
+  
   // Print final stats
   printf("-----------------------------\n");
   printf("-----------------------------\n");
@@ -120,6 +125,7 @@ int main(int argc, char *argv[])
   printf("Total people who rode: %d\n", total_riders);
   printf("Total rides taken: %d\n", total_rides_taken);
   printf("Last max queue size: %d was at %d mins.\n", maxqueue, max_waiting_time);
+  printf("Average wait time per person: %d\n", avg);
   printf("-----------------------------\n");
   printf("-----------------------------\n");
 
@@ -145,10 +151,12 @@ void *simulation(void *arg)
       Start by checking we haven't went over our defined MAX. If so, track how many we've rejected
       If not, track all the other things and send them on the rides.
     */
+    totalWait+=waiting;
+    int prevWait = waiting;
     total_people += people;
     if (waiting + people > MAXWAITPEOPLE)
     {
-      int rejected = (waiting + people) - MAXWAITPEOPLE;
+      rejected = (waiting + people) - MAXWAITPEOPLE;
       total_rejected += rejected;
       waiting += (people-rejected);
     }
@@ -161,6 +169,10 @@ void *simulation(void *arg)
       maxqueue = waiting;
       max_waiting_time = i;
     }
+    //calculate time.
+    int hours = (i+1)/60;
+    int minutes = (i+1) % 60;
+    fprintf(output, "%03d arrive %03d reject %03d wait-line %03d at %02d:%02d:00\n",i, people, rejected, waiting, hours, minutes);
     pthread_mutex_unlock(&lock);
     /*
       End of safe section
@@ -178,7 +190,7 @@ void *simulation(void *arg)
     pthread_mutex_unlock(&mutex_clock);
     //pthread_cond_broadcast(&sync_cond);
     // usleep(60000000); // Make things feel like an actual simulation. This is 1 min.
-    usleep(61000);
+    usleep(120000);
   }
   return NULL;
 }
@@ -195,7 +207,6 @@ void *car(void *arg)
 
   while (1)
   {
-    
     pthread_mutex_lock(&mutex_clock);
     //pthread_cond_wait(&sync_cond, &mutex_clock);
     if (cur_time >= SIM_DURATION)
