@@ -16,7 +16,7 @@ int maxqueue = 0; // track max waiting at any cur_time
 int max_waiting_time = 0;
 
 // #define SIM_DURATION 700 // 9 to 7pm in mins
-#define SIM_DURATION 100
+#define SIM_DURATION 600
 #define MAXWAITPEOPLE 800
 
 void *car(void *arg);
